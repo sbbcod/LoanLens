@@ -105,6 +105,7 @@
       },
       "calculated_lvr": null,
       "expected_flags": ["VALUATION_MISSING", "MISSING_REQUIRED"],
+      "document": {"purchase_price": 4000000},
       "document_notes": "The letter gives a contract purchase price of $4,000,000 and says a valuation 'will follow'. A purchase price is not a valuation: property_value must be null. Trap for the model."
     },
     {
@@ -158,6 +159,7 @@
       "calculated_lvr": 58.57,
       "expected_flags": [],
       "expected_low_confidence": ["loan_amount"],
+      "document": {"body_loan_amount_text": "approximately $3.8m"},
       "document_notes": "Body text says $3.8m; the summary table says $4,100,000. Ground truth takes the table, but the real test is that the model reports low confidence on loan_amount so the application goes to review. Neither figure breaches the LVR limit."
     },
     {

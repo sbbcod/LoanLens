@@ -1,0 +1,20 @@
+[project]
+name = "loanlens-backend"
+version = "0.1.0"
+description = "LoanLens API and AI pipeline"
+requires-python = ">=3.12"
+dependencies = [
+    "pdfplumber>=0.11",
+]
+
+[project.optional-dependencies]
+dev = [
+    "reportlab>=4.2",
+    "pytest>=8",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
