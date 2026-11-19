@@ -2,7 +2,7 @@
 
 The same document, model, effort and prompt version always gives a cache
 hit, so re-seeding or re-evaluating doesn't pay twice. Changing the prompt
-bumps PROMPT_VERSION and every entry is ignored.
+bumps its entry in PROMPT_VERSIONS and those entries are ignored.
 """
 
 from __future__ import annotations
@@ -15,11 +15,13 @@ from typing import Any
 
 from app.llm.base import Extraction, FieldReading, Review, ReviewRisk, Usage
 
-PROMPT_VERSION = "1"
+# Bump the one whose prompt or schema changed; the other call's cache stays valid.
+PROMPT_VERSIONS = {"extract": "3", "review": "4"}
 
 
-def key(*parts: str) -> str:
-    return hashlib.sha256("|".join((PROMPT_VERSION, *parts)).encode()).hexdigest()[:32]
+def key(purpose: str, *parts: str) -> str:
+    version = PROMPT_VERSIONS[purpose]
+    return hashlib.sha256("|".join((version, purpose, *parts)).encode()).hexdigest()[:32]
 
 
 def load(cache_dir: Path, k: str) -> dict[str, Any] | None:

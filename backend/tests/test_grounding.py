@@ -3,7 +3,8 @@ from app.pipeline.grounding import check, numbers_in
 from app.pipeline.pdf_text import Page
 
 PAGES = [
-    Page(1, "Loan amount $4,950,000\nTerm 24 months"),
+    Page(1, "Loan amount $4,950,000\nTerm 24 months\nseeking a first-mortgage facility of\n"
+            "$980,000 over a term of 36 months. The fee is $12,000 payable on settlement."),
     Page(2, "Fenwick Property Advisory valued it at about 3.9 mil, report dated\n21 August 2026"),
 ]
 LOAN = FIELDS_BY_NAME["loan_amount"]
@@ -39,6 +40,15 @@ def test_real_quote_with_wrong_number_fails():
     result = check(LOAN, 5_000_000, "Loan amount $4,950,000", 1, PAGES)
     assert not result.grounded
     assert "does not contain" in result.reason
+
+
+def test_quote_cut_at_line_break_before_the_value_still_counts():
+    assert check(LOAN, 980_000, "seeking a first-mortgage facility of", 1, PAGES).grounded
+
+
+def test_value_further_away_than_the_quote_does_not_count():
+    # $12,000 is on the page, but nowhere near this quote.
+    assert not check(LOAN, 12_000, "seeking a first-mortgage facility of", 1, PAGES).grounded
 
 
 def test_value_without_quote_fails():

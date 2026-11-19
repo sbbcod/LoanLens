@@ -51,9 +51,9 @@ def clean_value(spec: FieldSpec, value: Any) -> Any:
         return None
     try:
         if spec.kind == "money" or spec.kind == "percent":
-            return float(value)
+            return float(str(value).replace(",", "").replace("$", "").replace("%", "").strip())
         if spec.kind == "integer":
-            return int(value)
+            return int(float(str(value).replace(",", "").strip()))
         if spec.kind == "date":
             return date.fromisoformat(str(value)).isoformat()
         if spec.kind == "enum":

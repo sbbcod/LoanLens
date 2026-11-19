@@ -78,18 +78,26 @@ Inside the API, one application goes through these steps in order:
 
 ## Results
 
-_TBC — produced by `backend/scripts/evaluate.py` against the sample set._
+Claude Opus 5.5 at medium effort, on the ten sample applications. Produced by `backend/scripts/evaluate.py`; full tables in [docs/eval_results.md](docs/eval_results.md).
 
 | Measure | Result |
 |---|---|
-| Field-level accuracy | _TBC_ |
-| Correct handling of missing fields | _TBC_ |
-| Grounding failures | _TBC_ |
-| Expected policy flags raised | _TBC_ |
-| Average processing time per application | _TBC_ |
-| Average LLM cost per application | _TBC_ |
+| Field-level accuracy | 159 / 160 (99%) |
+| Missing fields correctly left empty | 22 / 23 |
+| Values without a verifiable quote | 1 / 138 |
+| Samples raising exactly the expected policy flags | 10 / 10 |
+| Conflicting figures flagged as low confidence | 1 / 1 |
+| Average AI time per application | 21 s (two model calls) |
+| Average AI cost per application | US$0.06 |
 
-The sample set is ten synthetic applications in several layouts, generated for this project. It shows that the pipeline works and where it fails; it is not evidence of accuracy on real broker documents. A failure analysis will sit alongside the numbers.
+**What went wrong, and what caught it**
+
+- **One wrong value.** S06's letter says "the property is unencumbered", and the model recorded existing debt as $0. That is an inference, not something the document states. The grounding check caught it: the quote contains no figure, so the value was marked unverified, its confidence capped, and the application sent to review. This is the one unverified value in the table above.
+- **Conflict detected.** S06 also gives the loan amount as "approximately $3.8m" in the letter and $4,100,000 in its summary table. The model took the table figure and scored it 0.40, so the application went to a person instead of through on a guess.
+- **A false alarm, fixed.** In the first run a correct loan amount in S09 was marked unverified, because the model's quote stopped at a line break just before the figure. Grounding now accepts the figure only if it appears immediately after the quote. Two tests cover this, including one that a figure elsewhere on the page does not count.
+- **Noise in the AI review, reduced.** The first run suggested "confirm the valuer is on the panel" for most applications. A point that applies to everything carries no information, so the review prompt now asks only for what this application gives a reason to raise. It dropped from most applications to two, each with a specific reason.
+
+These are ten synthetic documents written for this project. They show the pipeline works and where it breaks; they are not evidence of accuracy on real broker documents.
 
 ## Design decisions
 
@@ -103,7 +111,9 @@ The sample set is ten synthetic applications in several layouts, generated for t
 
 **Why a provider interface around the LLM.** The model name and provider come from configuration. Switching model is a config change, which keeps the choice open as price, quality and data-residency requirements change.
 
-**Model choice and cost.** _TBC — a short comparison based on measured tokens, latency and accuracy from the evaluation run._
+**Model choice and cost.** Claude Opus 5.5 at medium effort costs about six US cents and 21 seconds per application, for both model calls. At a few hundred applications a month that is tens of dollars, against an analyst's time on manual intake, so accuracy matters far more than model price. The evaluation script is the tool for revisiting this: point it at a cheaper model (Sonnet 5.5 is half the price) and keep it only if accuracy and the conflict-detection result hold. Answers are cached by document, so re-running an unchanged document costs nothing.
+
+**Why structured output, and why the schema is a list.** The API guarantees the reply matches a JSON schema, which removes parsing failures. It also limits how complex that schema can be. The first design, one nested object per field with nullable values, was rejected by the API. The final schema is a list of identical "readings", each naming its field, so its size doesn't grow with the number of fields. Values come back as text and are converted and validated by our own code. A field the model leaves out is treated as not found, with zero confidence.
 
 ## Tech stack
 

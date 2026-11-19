@@ -18,6 +18,7 @@ from app.pipeline.pdf_text import Page
 
 MATCH_THRESHOLD = 90       # rapidfuzz partial_ratio, 0–100
 MONEY_TOLERANCE = 0.005    # 0.5%
+CONTINUATION_CHARS = 30    # how far past the end of a quote we look for its value
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,14 @@ def check(spec: FieldSpec, value: Any, evidence: str | None, page: int | None,
     )
     if found_on is None:
         return GroundingResult(False, None, "The supporting quote does not appear in the document.")
-    if not value_matches_quote(spec, value, evidence):
-        return GroundingResult(False, found_on, "The quote does not contain the extracted value.")
-    return GroundingResult(True, found_on, None)
+    if value_matches_quote(spec, value, evidence):
+        return GroundingResult(True, found_on, None)
+
+    # Quotes often stop at a line break just before the figure ("...a facility of" / "$980,000").
+    # Accept the value only if it appears immediately after the quote, not anywhere on the page.
+    page_text = normalise(next(p.text for p in pages if p.number == found_on))
+    end = fuzz.partial_ratio_alignment(quote, page_text).dest_end
+    continuation = page_text[end:end + CONTINUATION_CHARS]
+    if value_matches_quote(spec, value, continuation):
+        return GroundingResult(True, found_on, None)
+    return GroundingResult(False, found_on, "The quote does not contain the extracted value.")

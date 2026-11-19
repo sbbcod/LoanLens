@@ -9,7 +9,9 @@ from typing import Any
 import anthropic
 
 from app.llm.base import Extraction, FieldReading, Review, ReviewRisk, Usage, cost_usd
-from app.llm.prompts import EXTRACT_SYSTEM, REVIEW_SCHEMA, REVIEW_SYSTEM, extraction_schema
+from app.llm.prompts import (
+    EXTRACT_SYSTEM, REVIEW_SCHEMA, REVIEW_SYSTEM, extraction_schema, field_guide,
+)
 from app.pipeline.fields import FIELDS
 from app.pipeline.pdf_text import Page, as_prompt_text
 
@@ -71,17 +73,28 @@ class AnthropicProvider:
     def extract(self, pages: list[Page]) -> Extraction:
         data, usage = self._call(
             EXTRACT_SYSTEM,
+            f"Fields to extract:\n{field_guide()}\n\n"
             f"Loan application document:\n\n{as_prompt_text(pages)}",
             extraction_schema(),
         )
+        readings = {}
+        for item in data["fields"]:
+            readings.setdefault(item["name"], item)  # first answer wins if repeated
+
         fields = {}
         for spec in FIELDS:
-            raw = data["fields"][spec.name]
+            raw = readings.get(spec.name)
+            if raw is None:
+                # The model skipped this field. Treat it as not found, with zero
+                # confidence, so a required field forces human review.
+                fields[spec.name] = FieldReading(None, 0.0, None, None)
+                continue
+            found = raw["found"] and raw["value"].strip() != ""
             fields[spec.name] = FieldReading(
-                value=raw["value"],
+                value=raw["value"] if found else None,   # converted by analyse.clean_value
                 confidence=min(max(float(raw["confidence"]), 0.0), 1.0),
-                evidence=raw["evidence"],
-                page=raw["page"],
+                evidence=raw["evidence"] or None,
+                page=raw["page"] or None,
             )
         return Extraction(fields=fields, summary=data["summary"], usage=usage)
 

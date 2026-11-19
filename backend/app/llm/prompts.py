@@ -15,10 +15,14 @@ EXTRACT_SYSTEM = """\
 You are a credit assistant at a commercial property lender. You read loan \
 applications sent by brokers and copy specific details out of them.
 
+Return one entry in "fields" for each of the fields listed in the user message, \
+exactly once each.
+
 Rules:
 - Only report what the document says. If a detail is not in the document, \
-return null for its value. Do not guess, infer from context, or calculate.
-- For every non-null value, give evidence: a short quote (at most 30 words) \
+set found to false, value and evidence to "", and page to 0. Do not guess, \
+infer from context, or calculate.
+- For every value found, give evidence: a short quote (at most 30 words) \
 copied word for word from the document, and the page number it is on. The \
 quote must contain the value itself. Evidence is checked automatically \
 against the document; a quote that is not found word for word is treated as \
@@ -31,8 +35,8 @@ category you had to choose).
   - 0.5 or below: the document gives conflicting values. Report the one \
 from the most formal part of the document (a table over prose) and explain \
 nothing; the low score is the signal.
-  - For a null value, confidence is how sure you are the detail is absent.
-- Amounts are plain AUD numbers: "$4.2m" is 4200000. Dates are YYYY-MM-DD.
+  - For a detail not found, confidence is how sure you are it is absent.
+- Write values in the format each field asks for: "$4.2m" is 4200000.
 - Copy identifiers such as ABNs exactly as written, even if they look wrong.
 
 Also write a summary: two or three plain sentences a credit manager could \
@@ -53,46 +57,61 @@ Do not assess anything the policy marks [System check] — loan size, term, \
 LVR, valuation age, presales, ABN, required fields. Those are checked by \
 separate deterministic rules, and repeating them adds noise.
 
+Only raise something this particular application gives a reason for. Do \
+not list routine checks that apply to every application (for example \
+confirming the valuer is on the panel, or that standard documents will be \
+provided) unless the document itself suggests a problem. A credit officer \
+already knows the routine; what they need from you is what is unusual here.
+
 Each risk must cite the single policy clause it relies on, as it appears \
 in the policy (for example "§7.2"). If no clause supports a concern, leave \
 it out. Return an empty list when there is nothing to raise. Prefer two \
 precise risks to five vague ones. Never recommend approving or declining."""
 
 
-def _value_schema(spec: FieldSpec) -> dict[str, Any]:
-    if spec.kind == "enum":
-        return {"anyOf": [{"type": "string", "enum": list(spec.options)}, {"type": "null"}]}
-    json_type = {
-        "text": "string", "date": "string", "money": "number",
-        "percent": "number", "integer": "integer",
-    }[spec.kind]
-    return {"anyOf": [{"type": json_type}, {"type": "null"}]}
+_FORMAT = {
+    "text": "Text as written.",
+    "money": "Digits only, in AUD (4200000).",
+    "percent": "A number (55.0 for 55%).",
+    "integer": "Whole number of months (24).",
+    "date": "YYYY-MM-DD.",
+}
+
+
+def _field_description(spec: FieldSpec) -> str:
+    fmt = (f"One of: {', '.join(spec.options)}." if spec.kind == "enum" else _FORMAT[spec.kind])
+    return f"{spec.description} Value format: {fmt}"
+
+
+def field_guide() -> str:
+    """The field list, with what each means and how to write it, for the prompt."""
+    return "\n".join(f"- {spec.name}: {_field_description(spec)}" for spec in FIELDS)
 
 
 def extraction_schema() -> dict[str, Any]:
-    field_props = {
-        spec.name: {
-            "type": "object",
-            "description": spec.description,
-            "properties": {
-                "value": _value_schema(spec),
-                "confidence": {"type": "number"},
-                "evidence": {"anyOf": [{"type": "string"}, {"type": "null"}]},
-                "page": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
-            },
-            "required": ["value", "confidence", "evidence", "page"],
-            "additionalProperties": False,
-        }
-        for spec in FIELDS
-    }
+    # Kept deliberately small. The API compiles the schema into a grammar and limits
+    # its size, so instead of one object per field (16 x 5 properties) the answer is
+    # a list of identical "readings", each naming its field. Values are plain strings,
+    # converted and checked by our own code (analyse.clean_value); nothing is nullable.
+    # The anthropic provider checks every field came back exactly once.
     return {
         "type": "object",
         "properties": {
             "fields": {
-                "type": "object",
-                "properties": field_props,
-                "required": [s.name for s in FIELDS],
-                "additionalProperties": False,
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "enum": [s.name for s in FIELDS]},
+                        "found": {"type": "boolean"},
+                        "value": {"type": "string"},
+                        "confidence": {"type": "number"},
+                        "evidence": {"type": "string"},
+                        "page": {"type": "integer"},
+                    },
+                    "required": ["name", "found", "value", "confidence", "evidence", "page"],
+                    "additionalProperties": False,
+                },
             },
             "summary": {"type": "string"},
         },
