@@ -111,9 +111,9 @@ The sample set is ten synthetic applications in several layouts, generated for t
 |---|---|
 | Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 |
 | PDF | pdfplumber to read, reportlab to generate the samples |
-| LLM | Anthropic Claude API behind a provider interface; model set by environment variable |
+| LLM | Anthropic Claude API (Claude Opus 5.5 by default) behind a provider interface; model and effort set by environment variable |
 | Database | SQLite locally, Azure SQL when deployed |
-| Frontend | React, TypeScript, Vite, TanStack Query, shadcn/ui, Tailwind |
+| Frontend | React, TypeScript, Vite, TanStack Query, Tailwind CSS, react-pdf, Recharts |
 | Automation | Power Automate (Outlook, SharePoint, Teams Approvals, HTTP), Copilot Studio |
 | Hosting | Docker, Azure Container Apps (API), Azure App Service (frontend) |
 | CI/CD | GitHub Actions |
@@ -121,7 +121,31 @@ The sample set is ten synthetic applications in several layouts, generated for t
 
 ## Run locally
 
-_TBC_
+Needs Python 3.12+ and Node 20+. No API key is needed: by default a mock provider stands in for the LLM.
+
+```bash
+cd backend
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+cp .env.example .env                       # set LLM_PROVIDER=anthropic and a key to use Claude
+.venv/bin/python scripts/seed_db.py        # load the ten sample applications
+.venv/bin/uvicorn app.main:app --reload    # API on http://localhost:8000/docs
+```
+
+```bash
+cd frontend
+npm install
+npm run dev                                # app on http://localhost:5173
+```
+
+Viewing is open. To edit, upload or send for approval, click **Read-only** and enter the passcode (`DEMO_PASSCODE` in `.env`).
+
+Tests and evaluation:
+
+```bash
+cd backend
+.venv/bin/pytest                           # 64 tests
+.venv/bin/python scripts/evaluate.py       # field accuracy against the ground truth
+```
 
 ## Limitations and next steps
 
