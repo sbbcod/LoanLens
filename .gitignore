@@ -24,6 +24,9 @@ backend/storage/
 node_modules/
 dist/
 
+# Local tool config (machine-specific paths)
+.claude/
+
 # OS / editor
 .DS_Store
 .vscode/
