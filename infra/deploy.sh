@@ -193,14 +193,23 @@ if [[ -z "$CLIENT_ID" ]]; then
   CLIENT_ID=$($AZ ad app create --display-name loanlens-github --query appId --output tsv)
 fi
 exists $AZ ad sp show --id "$CLIENT_ID" || $AZ ad sp create --id "$CLIENT_ID" --output none
-if [[ -z $($AZ ad app federated-credential list --id "$CLIENT_ID" --query "[?name=='github-main'].name" --output tsv) ]]; then
+# GitHub names the repository in its sign-in token either as owner/repo or, for
+# newer repositories, with the account and repository IDs added
+# (owner@123/repo@456), so renaming an account can't hijack the trust. Trust both
+# forms, for the main branch only.
+REPO_IDS=$(curl -fsS "https://api.github.com/repos/$GITHUB_REPO" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); o=d["owner"]; print("%s@%s/%s@%s" % (o["login"], o["id"], d["name"], d["id"]))')
+trust_github() {
+  [[ -n $($AZ ad app federated-credential list --id "$CLIENT_ID" --query "[?name=='$1'].name" --output tsv) ]] && return
   $AZ ad app federated-credential create --id "$CLIENT_ID" --output none --parameters "{
-    \"name\": \"github-main\",
+    \"name\": \"$1\",
     \"issuer\": \"https://token.actions.githubusercontent.com\",
-    \"subject\": \"repo:${GITHUB_REPO}:ref:refs/heads/main\",
+    \"subject\": \"repo:$2:ref:refs/heads/main\",
     \"audiences\": [\"api://AzureADTokenExchange\"]
   }"
-fi
+}
+trust_github github-main "$GITHUB_REPO"
+trust_github github-main-ids "$REPO_IDS"
 # Contributor on this resource group only, not the whole subscription.
 RG_SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG"
 if [[ -z $($AZ role assignment list --assignee "$CLIENT_ID" --scope "$RG_SCOPE" --role Contributor --query "[0].id" --output tsv) ]]; then
