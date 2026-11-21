@@ -36,7 +36,7 @@ flowchart LR
     flow1 -->|POST /api/ingest| api[FastAPI<br/>Azure Container Apps]
     api <-->|structured extraction| llm[LLM]
     api --> db[(Azure SQL)]
-    ui[React dashboard<br/>Azure App Service] <-->|REST| api
+    ui[React dashboard<br/>Azure Static Web Apps] <-->|REST| api
     api -->|submit for approval| flow2[Power Automate<br/>Approval flow]
     flow2 --> teams[Teams approval card]
     flow2 -->|decision callback| api
@@ -115,6 +115,10 @@ These are ten synthetic documents written for this project. They show the pipeli
 
 **Why structured output, and why the schema is a list.** The API guarantees the reply matches a JSON schema, which removes parsing failures. It also limits how complex that schema can be. The first design, one nested object per field with nullable values, was rejected by the API. The final schema is a list of identical "readings", each naming its field, so its size doesn't grow with the number of fields. Values come back as text and are converted and validated by our own code. A field the model leaves out is treated as not found, with zero confidence.
 
+**Hosting: designed to cost nothing while idle.** The API runs on Azure Container Apps and scales to zero replicas when idle. The database is Azure SQL serverless on the free offer, set to pause rather than bill if the monthly allowance runs out. The front end is plain files on Azure Static Web Apps (free tier). The price of this is a cold start: the first visit after a quiet spell waits while the API and database wake up. The API retries its database connection while the database resumes, and the web page says it is waking up instead of showing an error.
+
+**Releases without stored cloud passwords.** GitHub Actions signs in to Azure with OpenID Connect: Azure trusts a token that GitHub issues for this repository's main branch, so no Azure secret is kept in GitHub. Its permission is limited to the one resource group. Every release runs the tests first and deploys an image tagged with the commit, so it is always clear what is running and a rollback is pointing back at an older tag.
+
 ## Tech stack
 
 | Layer | Choice |
@@ -125,8 +129,8 @@ These are ten synthetic documents written for this project. They show the pipeli
 | Database | SQLite locally, Azure SQL when deployed |
 | Frontend | React, TypeScript, Vite, TanStack Query, Tailwind CSS, react-pdf, Recharts |
 | Automation | Power Automate (Outlook, SharePoint, Teams Approvals, HTTP), Copilot Studio |
-| Hosting | Docker, Azure Container Apps (API), Azure App Service (frontend) |
-| CI/CD | GitHub Actions |
+| Hosting | Docker, Azure Container Apps (API), Azure SQL serverless, Azure Static Web Apps (frontend) |
+| CI/CD | GitHub Actions, GitHub Container Registry, OpenID Connect sign-in to Azure |
 | Tests | pytest |
 
 ## Run locally
@@ -153,9 +157,19 @@ Tests and evaluation:
 
 ```bash
 cd backend
-.venv/bin/pytest                           # 64 tests
+.venv/bin/pytest                           # 69 tests
 .venv/bin/python scripts/evaluate.py       # field accuracy against the ground truth
 ```
+
+## Deploy to Azure
+
+Everything is created by one script, [infra/deploy.sh](infra/deploy.sh), and released by one workflow, [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+
+1. Push to `main`. GitHub Actions runs the tests and publishes the API image to GitHub Container Registry. Make the package public once, so Azure can pull it without a registry password.
+2. `az login`, then run `infra/deploy.sh`. It sets budget alerts, then creates the resource group, the database, the API, the static web app and the GitHub sign-in, and loads the ten sample applications. Generated secrets are kept in `infra/.env.azure`, which is git-ignored.
+3. Add the four repository variables the script prints, and re-run the workflow. From then on every push to `main` is tested and released.
+
+To remove everything: `az group delete --name rg-loanlens-demo`.
 
 ## Limitations and next steps
 
@@ -163,6 +177,8 @@ cd backend
 - No user accounts or roles; the demo uses a single shared passcode for writes.
 - The evaluation set is small and synthetic. A real rollout would start with a labelled set of past applications.
 - No integration with a loan origination system; approved applications stop at the dashboard.
+- The database uses a SQL login stored as a Container Apps secret. A production setup would use the app's managed identity, so there is no database password at all.
+- The demo wakes from idle on the first visit, which is slow. A production deployment would keep one replica running and the database online.
 
 ## How this was built
 
