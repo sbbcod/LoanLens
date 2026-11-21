@@ -102,9 +102,9 @@ def _review(provider: LLMProvider, settings: Settings, pages: list[Page], values
     return result, False
 
 
-def analyse(pdf_path: Path, provider: LLMProvider, settings: Settings) -> Analysis:
+def analyse(pdf: Path | bytes, provider: LLMProvider, settings: Settings) -> Analysis:
     # 1. Read the PDF (raises NoTextError for scans)
-    pages = read_pages(pdf_path)
+    pages = read_pages(pdf)
     text_hash = hashlib.sha256("\n".join(p.text for p in pages).encode()).hexdigest()
 
     # 2. LLM extraction

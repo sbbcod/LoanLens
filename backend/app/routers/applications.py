@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -88,14 +87,12 @@ def get_application(application_id: str, db: Session = Depends(get_db)) -> Appli
     return _detail(db, _load(db, application_id))
 
 
-@router.get("/applications/{application_id}/pdf", response_class=FileResponse)
-def get_pdf(application_id: str, db: Session = Depends(get_db)) -> FileResponse:
+@router.get("/applications/{application_id}/pdf", response_class=Response)
+def get_pdf(application_id: str, db: Session = Depends(get_db)) -> Response:
     application = _load(db, application_id)
-    path = Path(application.pdf_path)
-    if not path.exists():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "PDF file is missing.")
-    return FileResponse(path, media_type="application/pdf",
-                        headers={"Content-Disposition": f'inline; filename="{application.reference}.pdf"'})
+    return Response(application.pdf_data, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="{application.reference}.pdf"',
+                             "Cache-Control": "private, max-age=3600"})
 
 
 @router.get("/policy", response_class=PlainTextResponse, tags=["system"])

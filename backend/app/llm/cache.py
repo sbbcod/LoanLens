@@ -24,9 +24,17 @@ def key(purpose: str, *parts: str) -> str:
     return hashlib.sha256("|".join((version, purpose, *parts)).encode()).hexdigest()[:32]
 
 
+# Claude's real answers for the ten bundled samples, committed to the repository so
+# a fresh deployment can load the demo data without paying for the same calls again.
+RECORDED_DIR = Path(__file__).resolve().parents[2] / "data" / "recorded_llm"
+
+
 def load(cache_dir: Path, k: str) -> dict[str, Any] | None:
-    path = cache_dir / f"{k}.json"
-    return json.loads(path.read_text()) if path.exists() else None
+    for directory in (cache_dir, RECORDED_DIR):
+        path = directory / f"{k}.json"
+        if path.exists():
+            return json.loads(path.read_text())
+    return None
 
 
 def save(cache_dir: Path, k: str, data: Any) -> None:

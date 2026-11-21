@@ -49,7 +49,7 @@ async def ingest(
     if not data.startswith(b"%PDF"):
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Only PDF files are accepted.")
 
-    application = receive(db, settings, data, source=source,
+    application = receive(db, settings, data, source=source, filename=file.filename,
                           sender_email=sender_email, subject=subject)
     background.add_task(_process_in_background, application.id)
     return IngestResponse(id=application.id, reference=application.reference,

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -42,7 +41,7 @@ def _fail(db: Session, application: Application, message: str) -> Application:
 def process(db: Session, application: Application, settings: Settings) -> Application:
     provider = get_provider(settings)
     try:
-        result = analyse(Path(application.pdf_path), provider, settings)
+        result = analyse(application.pdf_data, provider, settings)
     except NoTextError as e:
         return _fail(db, application, str(e))
     except LLMError as e:

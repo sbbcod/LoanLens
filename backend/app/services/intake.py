@@ -16,19 +16,17 @@ def next_reference(db: Session, year: int) -> str:
 
 
 def receive(db: Session, settings: Settings, pdf_bytes: bytes, *, source: str,
-            sender_email: str | None = None, subject: str | None = None) -> Application:
+            filename: str | None = None, sender_email: str | None = None,
+            subject: str | None = None) -> Application:
     app_id = new_id()
-    settings.storage_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = settings.storage_dir / f"{app_id}.pdf"
-    pdf_path.write_bytes(pdf_bytes)
-
     application = Application(
         id=app_id,
         reference=next_reference(db, settings.assessment_date.year),
         source=source,
         sender_email=sender_email,
         subject=subject,
-        pdf_path=str(pdf_path),
+        pdf_filename=filename,
+        pdf_data=pdf_bytes,
     )
     db.add(application)
     db.add(AuditLog(application_id=app_id, actor="system", action="received",

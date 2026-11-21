@@ -14,7 +14,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -52,7 +52,11 @@ class Application(Base):
     subject: Mapped[str | None] = mapped_column(String(500))
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
-    pdf_path: Mapped[str] = mapped_column(String(500))
+    # The PDF itself, in the database rather than on disk: cloud containers lose
+    # their disk when they restart. Fine at a few hundred KB per application;
+    # at volume this would move to Blob Storage.
+    pdf_filename: Mapped[str | None] = mapped_column(String(255))
+    pdf_data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
     raw_text_hash: Mapped[str | None] = mapped_column(String(64))  # used to cache LLM results
     summary: Mapped[str | None] = mapped_column(Text)               # short AI summary for reviewers
     calculated_lvr: Mapped[float | None] = mapped_column(Float)     # loan / value, by code

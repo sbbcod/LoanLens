@@ -23,9 +23,6 @@ class Settings(BaseSettings):
     # Database. SQLite file locally; an Azure SQL connection string when deployed.
     database_url: str = f"sqlite:///{BACKEND_DIR / 'loanlens.db'}"
 
-    # Where uploaded PDFs are kept.
-    storage_dir: Path = BACKEND_DIR / "storage"
-
     # LLM. "mock" answers from the sample ground truth so the whole pipeline
     # runs without an API key; "anthropic" calls the real model.
     llm_provider: Literal["mock", "anthropic"] = "mock"

@@ -25,6 +25,15 @@ def require_write_key(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "A valid X-API-Key header is required.")
 
 
+def require_admin_key(
+    x_api_key: str | None = Header(default=None),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """For destructive actions: only the system key, never the shared demo passcode."""
+    if not x_api_key or not secrets.compare_digest(x_api_key, settings.api_key):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "The system API key is required.")
+
+
 def current_user(x_user_name: str | None = Header(default=None)) -> str:
     """Who is acting, for the audit log. The demo has no user accounts, so the
     front end sends the name the reviewer typed. Real systems use sign-in."""

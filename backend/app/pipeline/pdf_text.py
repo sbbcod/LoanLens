@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 
 import pdfplumber
@@ -18,8 +19,9 @@ class Page:
     text: str
 
 
-def read_pages(path: Path) -> list[Page]:
-    with pdfplumber.open(path) as pdf:
+def read_pages(source: Path | bytes) -> list[Page]:
+    """Accepts a file path or the PDF's bytes (as stored in the database)."""
+    with pdfplumber.open(BytesIO(source) if isinstance(source, bytes) else source) as pdf:
         pages = [Page(i, (p.extract_text() or "").strip()) for i, p in enumerate(pdf.pages, 1)]
     if not any(p.text for p in pages):
         raise NoTextError(

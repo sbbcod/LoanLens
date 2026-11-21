@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db, init_db
-from app.routers import applications, approvals, ingest, metrics
+from app.routers import admin, applications, approvals, ingest, metrics
 
 VERSION = "0.1.0"
 
@@ -27,8 +27,6 @@ VERSION = "0.1.0"
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Runs once when the server starts."""
-    settings = get_settings()
-    settings.storage_dir.mkdir(parents=True, exist_ok=True)
     init_db()
     yield
 
@@ -52,6 +50,7 @@ app.include_router(ingest.router)
 app.include_router(applications.router)
 app.include_router(approvals.router)
 app.include_router(metrics.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health", tags=["system"])
