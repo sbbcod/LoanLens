@@ -17,6 +17,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Azure SQL driver. Installed in the Docker image; not needed for local SQLite.
+azure = [
+    "pyodbc>=5.2",
+]
 dev = [
     "reportlab>=4.2",
     "pytest>=8",
