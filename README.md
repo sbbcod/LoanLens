@@ -4,7 +4,7 @@
 
 Loan applications arrive by email as messy PDFs. LoanLens uses an LLM to read the key loan details out of each document, checks them against credit policy with plain deterministic code, flags risks with confidence scores, and routes everything through a human review dashboard and a Microsoft Teams approval. Credit staff spend minutes, not hours, on intake — and the AI never makes the final call.
 
-**Demo video:** _TBC_ · **Live demo:** _TBC_
+**Demo video:** _TBC_ · **Live demo:** [kind-dune-0aa634900.6.azurestaticapps.net](https://kind-dune-0aa634900.6.azurestaticapps.net) (read-only; the first visit after a quiet spell can take up to a minute while it wakes up)
 
 All borrowers, brokers, addresses and policy figures in this repository are fictional.
 
