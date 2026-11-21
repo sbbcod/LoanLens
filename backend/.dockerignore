@@ -1,0 +1,11 @@
+.venv
+.env
+.env.*
+!.env.example
+.llm_cache
+.pytest_cache
+**/__pycache__
+*.egg-info
+*.db
+storage
+tests
