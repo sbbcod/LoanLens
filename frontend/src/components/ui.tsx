@@ -94,3 +94,18 @@ export function Spinner({ className }: { className?: string }) {
     />
   )
 }
+
+/** Page-level loading state. Once a request has failed and is being retried, it
+ * explains why: the hosted API and database sleep when idle and take a moment to start. */
+export function Loading({ failures, className }: { failures: number; className?: string }) {
+  return (
+    <div className={clsx('flex flex-col items-center gap-3 text-center', className)}>
+      <Spinner />
+      {failures > 0 && (
+        <p className="max-w-xs text-sm text-stone-500">
+          Waking up the demo. It sleeps when nobody is using it, so the first visit can take up to a minute.
+        </p>
+      )}
+    </div>
+  )
+}

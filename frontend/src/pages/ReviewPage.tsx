@@ -3,14 +3,14 @@ import { clsx } from 'clsx'
 import { ArrowLeft, Send, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useOutletContext, useParams } from 'react-router-dom'
-import { api, pdfUrl } from '../api/client'
+import { api, ApiError, pdfUrl } from '../api/client'
 import type { ApplicationDetail, FieldValue, Risk } from '../api/types'
 import { Activity } from '../components/Activity'
 import { FieldList } from '../components/FieldList'
 import type { LayoutContext } from '../components/Layout'
 import { PdfViewer } from '../components/PdfViewer'
 import { RiskList } from '../components/RiskList'
-import { Button, Card, ConfidenceBar, SectionTitle, Spinner, StatusBadge } from '../components/ui'
+import { Button, Card, ConfidenceBar, Loading, SectionTitle, Spinner, StatusBadge } from '../components/ui'
 import { date, money, percent } from '../lib/format'
 import { useSession } from '../lib/session'
 
@@ -81,8 +81,15 @@ export function ReviewPage() {
   const submit = useMutation({ mutationFn: () => api.submit(id, comment), onSuccess: onUpdated })
 
   const app = query.data
-  if (query.isLoading) return <div className="flex justify-center py-32"><Spinner /></div>
-  if (!app) return <p className="py-32 text-center text-sm text-stone-500">Application not found.</p>
+  if (query.isLoading) return <Loading failures={query.failureCount} className="py-32" />
+  if (!app) {
+    const notFound = query.error instanceof ApiError && query.error.status === 404
+    return (
+      <p className="py-32 text-center text-sm text-stone-500">
+        {notFound || !query.error ? 'Application not found.' : `Couldn't reach the API: ${query.error.message}`}
+      </p>
+    )
+  }
 
   const locked = LOCKED.has(app.status)
   const canEdit = !!session && !locked

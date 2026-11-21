@@ -7,7 +7,7 @@ import { api } from '../api/client'
 import type { ApplicationSummary, Status } from '../api/types'
 import { SEVERITY_DOT } from '../lib/severity'
 import type { LayoutContext } from '../components/Layout'
-import { Button, Card, ConfidenceBar, Spinner, Stat, StatusBadge } from '../components/ui'
+import { Button, Card, ConfidenceBar, Loading, Spinner, Stat, StatusBadge } from '../components/ui'
 import { moneyShort, optionLabel, percent, relative } from '../lib/format'
 import { useSession } from '../lib/session'
 
@@ -174,7 +174,7 @@ export function ApplicationsPage() {
             </tbody>
           </table>
         </div>
-        {list.isLoading && <div className="flex justify-center py-16"><Spinner /></div>}
+        {list.isLoading && <Loading failures={list.failureCount} className="py-16" />}
         {list.data?.length === 0 && (
           <div className="py-16 text-center text-sm text-stone-500">No applications here.</div>
         )}

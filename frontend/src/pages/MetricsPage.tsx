@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from '../api/client'
 import type { Status } from '../api/types'
-import { Card, SectionTitle, Spinner, Stat } from '../components/ui'
+import { Card, Loading, SectionTitle, Stat } from '../components/ui'
 import { STATUS_LABEL } from '../lib/format'
 
 const BAR = '#2c4a6e' // ink-600: the single series colour
@@ -14,8 +14,9 @@ function shortDate(iso: string) {
 }
 
 export function MetricsPage() {
-  const { data: m, isLoading } = useQuery({ queryKey: ['metrics'], queryFn: api.metrics })
-  if (isLoading || !m) return <div className="flex justify-center py-32"><Spinner /></div>
+  const { data: m, isLoading, failureCount, error } = useQuery({ queryKey: ['metrics'], queryFn: api.metrics })
+  if (isLoading) return <Loading failures={failureCount} className="py-32" />
+  if (!m) return <p className="py-32 text-center text-sm text-red-600">Couldn't reach the API: {error?.message}</p>
 
   const pct = (v: number | null) => (v == null ? '–' : `${Math.round(v * 100)}%`)
   const statusMax = Math.max(1, ...ORDER.map((s) => m.by_status[s] ?? 0))
