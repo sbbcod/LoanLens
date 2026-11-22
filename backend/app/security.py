@@ -34,6 +34,22 @@ def require_admin_key(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "The system API key is required.")
 
 
+def require_decision_key(
+    x_api_key: str | None = Header(default=None),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Who may record a credit decision.
+
+    With the Teams flow connected, only the flow (holding the system key) can, so a
+    reviewer with the demo passcode can't approve an application from the web page.
+    Without it, the demo passcode may, so the review page can play the manager's part.
+    """
+    if settings.approval_flow_url:
+        require_admin_key(x_api_key, settings)
+    else:
+        require_write_key(x_api_key, settings)
+
+
 def current_user(x_user_name: str | None = Header(default=None)) -> str:
     """Who is acting, for the audit log. The demo has no user accounts, so the
     front end sends the name the reviewer typed. Real systems use sign-in."""

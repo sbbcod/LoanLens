@@ -11,12 +11,12 @@ from sqlalchemy.orm import Session, selectinload
 from app.db import get_db
 from app.models import Application, ApplicationStatus, AuditLog
 from app.schemas import ApprovalCallback, ApprovalOut
-from app.security import require_write_key
+from app.security import require_decision_key
 
 router = APIRouter(prefix="/api/approvals", tags=["approvals"])
 
 
-@router.post("/callback", response_model=ApprovalOut, dependencies=[Depends(require_write_key)])
+@router.post("/callback", response_model=ApprovalOut, dependencies=[Depends(require_decision_key)])
 def approval_callback(body: ApprovalCallback, db: Session = Depends(get_db)) -> ApprovalOut:
     application = db.scalar(select(Application).where(Application.id == body.application_id)
                             .options(selectinload(Application.approvals)))

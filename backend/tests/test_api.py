@@ -140,6 +140,13 @@ def test_submitting_calls_the_approval_flow_with_a_ready_card(client, monkeypatc
     assert "**Submitted by:** Sarah — Valuation is recent." in details
     assert "- Critical:" in details and "(Policy §4.2)" in details and "acknowledged by Sarah" in details
 
+    # With Teams connected, only the flow (system key) can record the decision,
+    # not a reviewer holding the demo passcode.
+    decision = {"application_id": app_id, "decision": "approved", "approver": "Tom"}
+    passcode = {"X-API-Key": get_settings().demo_passcode}
+    assert client.post("/api/approvals/callback", headers=passcode, json=decision).status_code == 401
+    assert client.post("/api/approvals/callback", headers=KEY, json=decision).status_code == 200
+
 
 def test_metrics(client):
     m = client.get("/api/metrics").json()
