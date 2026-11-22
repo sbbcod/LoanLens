@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { clsx } from 'clsx'
+import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api/client'
 import type { Risk } from '../api/types'
@@ -40,8 +41,14 @@ function RiskRow({ risk, canEdit, onToggle, busy }: {
             </span>
             <span>{SOURCE_LABEL[risk.source]}</span>
             {risk.policy_ref && (
-              <button onClick={() => setShowClause((s) => !s)} className="text-ink-600 hover:underline">
+              <button
+                onClick={() => setShowClause((s) => !s)}
+                aria-expanded={showClause}
+                title={showClause ? 'Hide the policy clause' : 'Show the policy clause'}
+                className="-mx-1.5 -my-0.5 inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-medium text-ink-600 transition-colors hover:bg-ink-50 hover:text-ink-700"
+              >
                 Policy {risk.policy_ref}
+                <ChevronDown className={clsx('size-3.5 transition-transform', showClause && 'rotate-180')} />
               </button>
             )}
             {risk.acknowledged && risk.acknowledged_by && (
