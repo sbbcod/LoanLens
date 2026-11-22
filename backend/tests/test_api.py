@@ -28,6 +28,12 @@ def test_writes_need_a_key(client):
     assert upload(client, "S01", headers={"X-API-Key": "wrong-key"}).status_code == 401
 
 
+def test_passcode_check(client):
+    assert client.get("/api/auth/check").status_code == 401
+    assert client.get("/api/auth/check", headers={"X-API-Key": "wrong-key"}).status_code == 401
+    assert client.get("/api/auth/check", headers=KEY).status_code == 200
+
+
 def test_only_pdfs_are_accepted(client):
     r = client.post("/api/ingest", headers=KEY,
                     files={"file": ("notes.txt", b"hello", "text/plain")})

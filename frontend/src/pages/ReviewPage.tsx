@@ -25,6 +25,21 @@ function Figure({ label, children }: { label: string; children: React.ReactNode 
   )
 }
 
+/** The approval went to a real Teams card; the page polls until the flow reports back. */
+function AwaitingTeams() {
+  return (
+    <Card className="flex gap-3 border-violet-200 bg-violet-50/40 p-4">
+      <Spinner />
+      <div>
+        <p className="text-sm font-medium text-violet-900">Waiting for the credit manager</p>
+        <p className="mt-1 text-xs text-violet-800/70">
+          The approval card is in Microsoft Teams. Their decision will appear here as soon as they respond.
+        </p>
+      </div>
+    </Card>
+  )
+}
+
 /** Plays the credit manager's part when the Teams approval flow isn't connected. */
 function SimulatedDecision({ app }: { app: ApplicationDetail }) {
   const queryClient = useQueryClient()
@@ -62,7 +77,12 @@ export function ReviewPage() {
   const query = useQuery({
     queryKey: ['application', id],
     queryFn: () => api.get(id),
-    refetchInterval: (q) => (q.state.data?.status === 'received' ? 1500 : false),
+    // Poll while something outside this page is working: the AI reading the
+    // document, or the credit manager deciding in Teams.
+    refetchInterval: (q) => {
+      const status = q.state.data?.status
+      return status === 'received' ? 1500 : status === 'pending_approval' ? 5000 : false
+    },
   })
 
   const onUpdated = (detail: ApplicationDetail) => {
@@ -95,7 +115,8 @@ export function ReviewPage() {
   const canEdit = !!session && !locked
   const openCritical = app.risks.filter((r) => r.severity === 'critical' && !r.acknowledged).length
   const decided = app.approvals.find((a) => a.decision)
-  const error = edit.error ?? ack.error ?? submit.error
+  const lastRequest = [...app.audit].reverse().find((a) => a.action === 'approval_requested')
+  const sentToTeams = lastRequest?.detail?.channel === 'power_automate'
   const lvrOver = app.calculated_lvr != null && app.lvr_limit != null && app.calculated_lvr > app.lvr_limit
 
   return (
@@ -163,6 +184,7 @@ export function ReviewPage() {
                   Risks
                 </SectionTitle>
                 <Card><RiskList risks={app.risks} canEdit={canEdit} busy={ack.isPending} onToggle={(r) => ack.mutate(r)} /></Card>
+                {ack.error && <p role="alert" className="mt-2 text-sm text-red-600">{ack.error.message}</p>}
               </section>
 
               <section>
@@ -175,13 +197,14 @@ export function ReviewPage() {
                              onSelect={(f) => { setSelected(selected === f.name ? null : f.name); if (f.page) setPage(f.page) }}
                              onSave={(name, value) => edit.mutateAsync({ name, value })} />
                 </Card>
+                {edit.error && <p role="alert" className="mt-2 text-sm text-red-600">{edit.error.message}</p>}
               </section>
 
               {/* Decision */}
               <section>
                 <SectionTitle>Decision</SectionTitle>
                 {app.status === 'pending_approval' ? (
-                  <SimulatedDecision app={app} />
+                  sentToTeams ? <AwaitingTeams /> : <SimulatedDecision app={app} />
                 ) : decided ? (
                   <Card className={clsx('p-4', decided.decision === 'approved' ? 'border-emerald-200 bg-emerald-50/50' : 'bg-stone-50')}>
                     <p className="text-sm font-medium">
@@ -216,7 +239,7 @@ export function ReviewPage() {
                     )}
                   </Card>
                 )}
-                {error && <p className="mt-2 text-sm text-red-600">{error.message}</p>}
+                {submit.error && <p role="alert" className="mt-2 text-sm text-red-600">{submit.error.message}</p>}
               </section>
             </>
           )}

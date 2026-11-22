@@ -2,17 +2,32 @@ import { clsx } from 'clsx'
 import { Lock, LockOpen } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { api } from '../api/client'
 import { setSession, useSession } from '../lib/session'
 import { Button } from './ui'
 
 function UnlockDialog({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [passcode, setPasscode] = useState('')
+  const [checking, setChecking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function submit(e: FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault()
-    setSession({ name: name.trim() || 'Analyst', passcode: passcode.trim() })
-    onClose()
+    setChecking(true)
+    setError(null)
+    try {
+      if (await api.checkPasscode(passcode.trim())) {
+        setSession({ name: name.trim() || 'Analyst', passcode: passcode.trim() })
+        onClose()
+      } else {
+        setError("That passcode isn't right.")
+      }
+    } catch {
+      setError("Couldn't reach the server. The demo may be waking up; try again in a moment.")
+    } finally {
+      setChecking(false)
+    }
   }
 
   return (
@@ -31,12 +46,16 @@ function UnlockDialog({ onClose }: { onClose: () => void }) {
         </label>
         <label className="mt-3 block text-sm font-medium text-stone-700">
           Passcode
-          <input type="password" value={passcode} onChange={(e) => setPasscode(e.target.value)} required
-                 className="mt-1.5 block h-10 w-full rounded-lg border border-stone-200 px-3 text-sm outline-none focus:border-ink-500" />
+          <input type="password" value={passcode} required
+                 onChange={(e) => { setPasscode(e.target.value); setError(null) }}
+                 aria-invalid={!!error} aria-describedby={error ? 'unlock-error' : undefined}
+                 className={clsx('mt-1.5 block h-10 w-full rounded-lg border px-3 text-sm outline-none focus:border-ink-500',
+                                 error ? 'border-red-300' : 'border-stone-200')} />
         </label>
+        {error && <p id="unlock-error" role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary">Continue</Button>
+          <Button type="submit" variant="primary" disabled={checking}>{checking ? 'Checking…' : 'Continue'}</Button>
         </div>
       </form>
     </div>

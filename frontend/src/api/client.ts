@@ -1,5 +1,5 @@
 import type { ApplicationDetail, ApplicationSummary, FieldValue, Metrics, Status } from './types'
-import { getSession } from '../lib/session'
+import { getSession, setSession } from '../lib/session'
 
 const BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
 
@@ -18,6 +18,12 @@ function writeHeaders(): Record<string, string> {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${BASE}${path}`, init)
+  if (response.status === 401 && getSession()) {
+    // The saved passcode no longer works (mistyped, or changed on the server).
+    // Drop it so the page goes back to read-only instead of failing on every click.
+    setSession(null)
+    throw new ApiError(401, 'The passcode was not accepted. Sign in again to make changes.')
+  }
   if (!response.ok) {
     let message = response.statusText
     try {
@@ -54,6 +60,13 @@ export const api = {
   get: (id: string) => request<ApplicationDetail>(`/api/applications/${id}`),
   metrics: () => request<Metrics>('/api/metrics'),
   policy: () => fetch(`${BASE}/api/policy`).then((r) => r.text()),
+  /** True if the server accepts this passcode; checked before it is saved. */
+  checkPasscode: async (passcode: string) => {
+    const response = await fetch(`${BASE}/api/auth/check`, { headers: { 'X-API-Key': passcode } })
+    if (response.status === 401) return false
+    if (!response.ok) throw new ApiError(response.status, response.statusText)
+    return true
+  },
 
   upload: (file: File) => {
     const form = new FormData()
