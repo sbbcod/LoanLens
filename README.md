@@ -170,6 +170,7 @@ Everything is created by one script, [infra/deploy.sh](infra/deploy.sh), and rel
 1. Push to `main`. GitHub Actions runs the tests and publishes the API image to GitHub Container Registry. Make the package public once, so Azure can pull it without a registry password.
 2. `az login`, then run `infra/deploy.sh`. It sets budget alerts, then creates the resource group, the database, the API, the static web app and the GitHub sign-in, and loads the ten sample applications. Generated secrets are kept in `infra/.env.azure`, which is git-ignored.
 3. Add the four repository variables the script prints, and re-run the workflow. From then on every push to `main` is tested and released.
+4. Once the Teams approval flow exists, run `infra/set-approval-flow-url.sh` and paste its trigger URL. The URL carries a signature, so it is stored as a Container Apps secret, never in the repository. Until then, approvals are simulated on the review page.
 
 To remove everything: `az group delete --name rg-loanlens-demo`.
 
