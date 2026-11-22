@@ -109,6 +109,8 @@ These are ten synthetic documents written for this project. They show the pipeli
 
 **Why Power Automate for the email and approval steps.** The mailbox, the document library and the approver already live in Microsoft 365. Power Automate reaches them with managed connectors, and Teams approvals bring mobile access, delegation and their own history without any custom code. The API stays a plain web service that knows nothing about mailboxes.
 
+**Why the API writes the approval card text.** When an application is sent for approval, the API includes the card body as ready-made Markdown: amount, LVR, the analyst's note and each risk with its policy section. Formatting money and lists in flow expressions is fiddly and can't be unit tested; in Python it is one function with a test. The flow just places it on the card.
+
 **Why a provider interface around the LLM.** The model name and provider come from configuration. Switching model is a config change, which keeps the choice open as price, quality and data-residency requirements change.
 
 **Model choice and cost.** Claude Opus 5.5 at medium effort costs about six US cents and 21 seconds per application, for both model calls. At a few hundred applications a month that is tens of dollars, against an analyst's time on manual intake, so accuracy matters far more than model price. The evaluation script is the tool for revisiting this: point it at a cheaper model (Sonnet 5.5 is half the price) and keep it only if accuracy and the conflict-detection result hold. Answers are cached by document, so re-running an unchanged document costs nothing.

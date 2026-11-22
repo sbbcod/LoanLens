@@ -98,6 +98,43 @@ def test_approval_flow_end_to_end(client):
     assert client.post("/api/approvals/callback", headers=KEY, json=decision).status_code == 409
 
 
+def test_submitting_calls_the_approval_flow_with_a_ready_card(client, monkeypatch):
+    from app.config import get_settings
+    from app.services import power_automate
+
+    sent: dict = {}
+
+    class Ok:
+        def raise_for_status(self) -> None:
+            pass
+
+    def fake_post(url: str, json: dict, timeout: float) -> Ok:
+        sent.update(url=url, body=json)
+        return Ok()
+
+    monkeypatch.setattr(get_settings(), "approval_flow_url", "https://flow.example/trigger")
+    monkeypatch.setattr(power_automate.httpx, "post", fake_post)
+
+    app_id = upload(client, "S08").json()["id"]  # land, LVR 52% > 50%: critical
+    detail = client.get(f"/api/applications/{app_id}").json()
+    critical = next(r for r in detail["risks"] if r["severity"] == "critical")
+    client.post(f"/api/applications/{app_id}/acknowledge-risk", headers=KEY,
+                json={"risk_id": critical["id"]})
+    r = client.post(f"/api/applications/{app_id}/submit-for-approval", headers=KEY,
+                    json={"comment": "Valuation is recent."})
+    assert r.status_code == 200
+
+    body = sent["body"]
+    assert sent["url"] == "https://flow.example/trigger"
+    assert body["application_id"] == app_id
+    assert body["review_url"].endswith(f"/applications/{app_id}")
+    details = body["details"]
+    assert "**Loan:** $1,560,000 · Purchase · Land" in details
+    assert "**LVR:** 52.0%" in details
+    assert "**Submitted by:** Sarah — Valuation is recent." in details
+    assert "- Critical:" in details and "(Policy §4.2)" in details and "acknowledged by Sarah" in details
+
+
 def test_metrics(client):
     m = client.get("/api/metrics").json()
     assert m["total"] >= 4
