@@ -111,6 +111,8 @@ These are ten synthetic documents written for this project. They show the pipeli
 
 **Why the API writes the approval card text.** When an application is sent for approval, the API includes the card body as ready-made Markdown: amount, LVR, the analyst's note and each risk with its policy section. Formatting money and lists in flow expressions is fiddly and can't be unit tested; in Python it is one function with a test. The flow just places it on the card.
 
+**Why the status lookup returns a sentence.** The Copilot Studio agent looks up an application through `GET /api/status/{reference}`, which answers with one ready-made sentence: borrower, amount, where it is, open risks and a link. The wording is built and tested in Python, so the agent reads out facts instead of interpreting raw data. It accepts "APP-2026-0008" or just "8", because that's how people ask.
+
 **Why only the flow can record a decision.** Once the Teams flow is connected, the decision endpoint accepts only the system key the flow holds, not the passcode reviewers use. The analyst who prepares an application can't also approve it from the web page; the decision has to come from the manager's Teams card.
 
 **Why a provider interface around the LLM.** The model name and provider come from configuration. Switching model is a config change, which keeps the choice open as price, quality and data-residency requirements change.

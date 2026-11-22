@@ -23,7 +23,7 @@ from app.schemas import (
     AcknowledgeRequest, ApplicationDetail, ApplicationSummary, FieldEdits, SubmitRequest,
 )
 from app.security import current_user, require_write_key
-from app.services import power_automate, views
+from app.services import power_automate, status_text, views
 
 router = APIRouter(prefix="/api", tags=["applications"])
 
@@ -80,6 +80,32 @@ def list_applications(
         items = [i for i in items
                  if needle in i.reference.lower() or needle in (i.borrower_name or "").lower()]
     return items
+
+
+@router.get("/status/{reference}", tags=["assistant"])
+def status_by_reference(reference: str, db: Session = Depends(get_db),
+                        settings: Settings = Depends(get_settings)) -> dict[str, object]:
+    """A one-sentence status for the Copilot Studio agent, looked up by reference.
+
+    Accepts the full reference ("APP-2026-0008") or just its number ("0008" or "8"),
+    because that's how people ask. Always 200, with found=false when there's no
+    single match, so the agent can say so instead of handling an error.
+    """
+    wanted = reference.strip().upper()
+    number = wanted.rsplit("-", 1)[-1].lstrip("0")
+    apps = db.scalars(select(Application).options(selectinload(Application.fields),
+                                                  selectinload(Application.risks),
+                                                  selectinload(Application.approvals))).all()
+    matches = [a for a in apps if a.reference.upper() == wanted]
+    if not matches and number.isdigit():
+        matches = [a for a in apps if a.reference.rsplit("-", 1)[-1].lstrip("0") == number]
+    if len(matches) != 1:
+        return {"found": False,
+                "answer": f"I couldn't find an application with reference {reference.strip()}."}
+    application = matches[0]
+    url = f"{settings.frontend_url.rstrip('/')}/applications/{application.id}"
+    return {"found": True, "reference": application.reference,
+            "answer": status_text.status_sentence(application, views.summary(application), url)}
 
 
 @router.get("/applications/{application_id}", response_model=ApplicationDetail)

@@ -69,6 +69,20 @@ def test_correcting_a_field_reruns_the_rules_and_keeps_the_ai_value(client):
     assert after["audit"][-1]["action"] == "field_edited"
 
 
+def test_status_sentence_for_the_assistant(client):
+    ref = upload(client, "S08").json()["reference"]  # land, LVR 52%: one critical risk
+    for asked in (ref, ref.lower(), ref.rsplit("-", 1)[-1]):
+        r = client.get(f"/api/status/{asked}").json()
+        assert r["found"] and r["reference"] == ref
+    answer = r["answer"]
+    assert answer.startswith(f"{ref} (Wirra Creek Land Pty Ltd, $1.56m land purchase)")
+    assert "1 critical" in answer and "LVR 52.0%." in answer and "/applications/" in answer
+
+    missing = client.get("/api/status/APP-1999-9999").json()
+    assert missing == {"found": False,
+                       "answer": "I couldn't find an application with reference APP-1999-9999."}
+
+
 def test_bad_values_are_rejected(client):
     app_id = upload(client, "S01").json()["id"]
     r = client.patch(f"/api/applications/{app_id}/fields", headers=KEY,
