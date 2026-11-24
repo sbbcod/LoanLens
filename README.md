@@ -19,20 +19,17 @@ The background, the users and the success measures are written up in [docs/disco
 ## What it does
 
 1. A broker emails an application PDF to a shared mailbox.
-2. A Power Automate flow files the PDF in SharePoint and posts it to the LoanLens API.
+2. A Power Automate flow posts the PDF to the LoanLens API.
 3. The API extracts the text and asks an LLM to fill a fixed schema: borrower, loan amount, property value, term and so on. Every field comes back with a value, a confidence score, and a quote from the document that supports it.
 4. The API checks that each quote really appears in the document, then runs the credit policy rules in ordinary Python.
 5. An analyst opens the review page: the original PDF on the left, the extracted fields on the right. Uncertain fields are amber, policy breaches are red. The analyst corrects what is wrong and acknowledges the risks.
 6. The analyst sends it for approval. A credit manager approves or rejects in Teams, and the status and audit trail update automatically.
-
-A Copilot Studio agent in Teams answers questions about the credit policy and looks up application status.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
     broker[Broker email + PDF] --> flow1[Power Automate<br/>Loan Intake flow]
-    flow1 --> sp[(SharePoint)]
     flow1 -->|POST /api/ingest| api[FastAPI<br/>Azure Container Apps]
     api <-->|structured extraction| llm[LLM]
     api --> db[(Azure SQL)]
@@ -40,8 +37,6 @@ flowchart LR
     api -->|submit for approval| flow2[Power Automate<br/>Approval flow]
     flow2 --> teams[Teams approval card]
     flow2 -->|decision callback| api
-    agent[Copilot Studio agent] -->|knowledge source| policy[credit_policy.md]
-    agent -->|status lookup| api
 ```
 
 Inside the API, one application goes through these steps in order:
@@ -111,7 +106,7 @@ These are ten synthetic documents written for this project. They show the pipeli
 
 **Why the API writes the approval card text.** When an application is sent for approval, the API includes the card body as ready-made Markdown: amount, LVR, the analyst's note and each risk with its policy section. Formatting money and lists in flow expressions is fiddly and can't be unit tested; in Python it is one function with a test. The flow just places it on the card.
 
-**Why the status lookup returns a sentence.** The Copilot Studio agent looks up an application through `GET /api/status/{reference}`, which answers with one ready-made sentence: borrower, amount, where it is, open risks and a link. The wording is built and tested in Python, so the agent reads out facts instead of interpreting raw data. It accepts "APP-2026-0008" or just "8", because that's how people ask.
+**Why the status lookup returns a sentence.** `GET /api/status/{reference}` is for a chat assistant: it answers with one ready-made sentence covering borrower, amount, where the application is, open risks and a link. The wording is built and tested in Python, so an assistant reads out facts instead of interpreting raw data. It accepts "APP-2026-0008" or just "8", because that's how people ask.
 
 **Why only the flow can record a decision.** Once the Teams flow is connected, the decision endpoint accepts only the system key the flow holds, not the passcode reviewers use. The analyst who prepares an application can't also approve it from the web page; the decision has to come from the manager's Teams card.
 
@@ -134,7 +129,7 @@ These are ten synthetic documents written for this project. They show the pipeli
 | LLM | Anthropic Claude API (Claude Opus 5.5 by default) behind a provider interface; model and effort set by environment variable |
 | Database | SQLite locally, Azure SQL when deployed |
 | Frontend | React, TypeScript, Vite, TanStack Query, Tailwind CSS, react-pdf, Recharts |
-| Automation | Power Automate (Outlook, SharePoint, Teams Approvals, HTTP), Copilot Studio |
+| Automation | Power Automate (Outlook, Teams Approvals, HTTP) |
 | Hosting | Docker, Azure Container Apps (API), Azure SQL serverless, Azure Static Web Apps (frontend) |
 | CI/CD | GitHub Actions, GitHub Container Registry, OpenID Connect sign-in to Azure |
 | Tests | pytest |
@@ -163,7 +158,7 @@ Tests and evaluation:
 
 ```bash
 cd backend
-.venv/bin/pytest                           # 69 tests
+.venv/bin/pytest                           # 72 tests
 .venv/bin/python scripts/evaluate.py       # field accuracy against the ground truth
 ```
 
@@ -186,6 +181,7 @@ To remove everything: `az group delete --name rg-loanlens-demo`.
 - No integration with a loan origination system; approved applications stop at the dashboard.
 - The database uses a SQL login stored as a Container Apps secret. A production setup would use the app's managed identity, so there is no database password at all.
 - The demo wakes from idle on the first visit, which is slow. A production deployment would keep one replica running and the database online.
+- No chat assistant. A Copilot Studio agent was configured (policy document as its only knowledge source, web search and mailbox access off, instructions never to decide a loan) but not deployed, because running it needs paid Copilot credits. The status endpoint above is what it would call.
 
 ## How this was built
 
